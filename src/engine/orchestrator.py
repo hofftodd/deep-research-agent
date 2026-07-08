@@ -63,8 +63,19 @@ def _get_default_options():
         }
     return options
 
+class _CompatChatCompletionClient(OpenAIChatCompletionClient):
+    """Some OpenAI-compatible gateways require a "content" field on every
+    message, but the SDK omits it on assistant messages that only carry
+    tool_calls. Ensure it is always present ("" is accepted everywhere).
+    """
+    def _prepare_messages_for_openai(self, chat_messages, role_key="role", content_key="content"):
+        prepared = super()._prepare_messages_for_openai(chat_messages, role_key, content_key)
+        for msg in prepared:
+            msg.setdefault("content", "")
+        return prepared
+
 def _build_client():
-    return OpenAIChatCompletionClient(
+    return _CompatChatCompletionClient(
         base_url=config.cfg["api"]["openai_base_url"],
         api_key=os.getenv("OPENAI_API_KEY", "dummy"),
         model=config.cfg["api"]["openai_model"]
