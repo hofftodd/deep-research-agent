@@ -2,6 +2,11 @@ import os
 import sys
 import yaml
 import copy
+from dotenv import load_dotenv
+
+# Load .env from the project root (parent of src/), falling back to cwd lookup
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv()
 
 def _get_config_path_from_args():
     for i, arg in enumerate(sys.argv):
