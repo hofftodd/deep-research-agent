@@ -29,8 +29,17 @@ def get_ddgs_client():
 async def fetch_url_to_workspace(url: str, filename: str, convert_to_md: bool = True) -> str:
     """Fetch external web content and save it directly to the workspace. If convert_to_md is True, parses to Markdown."""
     def _fetch():
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+        # A descriptive User-Agent gets 200s from sites (e.g. Wikipedia) that
+        # block spoofed browser UAs as bot traffic.
+        headers = {
+            "User-Agent": "deep-research-agent/0.1 (+https://github.com/kyuz0/deep-research-agent) httpx",
+            "Accept": "text/html,application/xhtml+xml,application/pdf,*/*",
+        }
         resp = httpx.get(url, headers=headers, timeout=30, follow_redirects=True)
+        # Surface HTTP failures instead of saving the error page as "content".
+        # Without this, a 403/404 block page is written to the workspace and
+        # reported as success, so the agent re-fetches/re-searches in a loop.
+        resp.raise_for_status()
 
         if not convert_to_md:
             return resp.content  # Raw bytes
@@ -126,9 +135,15 @@ async def fetch_url_to_workspace(url: str, filename: str, convert_to_md: bool = 
         else:
             _IN_MEMORY_FS[path] = chunk
             return f"Fetched URL successfully to '{filename}' in memory."
+    except httpx.HTTPStatusError as e:
+        # Clear, actionable message: this URL is unusable — try a different
+        # source rather than re-fetching or re-searching the same thing.
+        return (f"Error: Could not fetch '{url}' — the server returned HTTP "
+                f"{e.response.status_code}. The page was NOT saved. This URL is "
+                f"likely blocked or unavailable; do not retry it. Use a different source.")
     except Exception as e:
-        import traceback
-        return f"Failed: {e}\n\nTraceback:\n{traceback.format_exc()}"
+        return (f"Error: Could not fetch '{url}' ({type(e).__name__}: {e}). "
+                f"The page was NOT saved. Do not retry this URL; use a different source.")
 
 @tool
 async def web_search(
