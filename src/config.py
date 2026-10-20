@@ -3,6 +3,13 @@ import sys
 import yaml
 import copy
 
+from dotenv import load_dotenv
+
+# Load .env from the current working directory, then from the project root,
+# so `OPENAI_API_BASE` / `OPENAI_MODEL` overrides work as documented in the README.
+load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+
 def _get_config_path_from_args():
     for i, arg in enumerate(sys.argv):
         if arg in ["--config", "-c"] and i + 1 < len(sys.argv):
